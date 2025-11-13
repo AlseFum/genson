@@ -1,0 +1,388 @@
+{
+  "type": "module",
+  "default": "$0",
+  "items": [
+    {
+      "type": "seq",
+      "items": [
+        "Hello,",
+        {
+          "type": "option",
+          "items": [
+            "Visaasitor",
+            "World",
+            "Banana"
+          ]
+        },
+        "!"
+      ]
+    },
+    {
+      "type": "Roulette",
+      "items": [
+        {
+          "weight": "3",
+          "value": "Brazil"
+        },
+        {
+          "weight": {
+            "type": "expr",
+            "value": {
+              "op": "+",
+              "left": "3",
+              "right": "1"
+            }
+          },
+          "value": "Chile"
+        },
+        {
+          "wt": "5",
+          "value": {
+            "type": "expr",
+            "value": "Pakistan"
+          }
+        }
+      ]
+    },
+    {
+      "type": "repeat",
+      "time": 3,
+      "items": {
+        "type": "option",
+        "items": [
+          "A",
+          "B",
+          "C"
+        ]
+      },
+      "separator": {
+        "type": "option",
+        "items": [
+          ";",
+          ","
+        ]
+      }
+    },
+    {
+      "type": "delegate",
+      "time": {
+        "type": "expr",
+        "value": "4"
+      },
+      "items": [
+        "D",
+        "E",
+        {
+          "type": "expr",
+          "value": {
+            "op": "+",
+            "left": "3",
+            "right": "1"
+          }
+        }
+      ]
+    },
+    {
+      "type": "layer",
+      "props": {
+        "const1": "const_items",
+        "var1": {
+          "of": "dodo",
+          "value": 23
+        },
+        "count": {
+          "of": "literal",
+          "value": 0
+        },
+        "score": {
+          "of": "literal",
+          "value": 95
+        },
+        "names": [
+          "alice",
+          "bob",
+          "charlie"
+        ],
+        "snake1": {
+          "of": "snake",
+          "value": {
+            "member1": 200,
+            "member2": 7
+          }
+        }
+      },
+      "before": [
+        {
+          "type": "set",
+          "path": "count",
+          "value": {
+            "type": "expr",
+            "value": {
+              "op": "+",
+              "left": {
+                "op": "get",
+                "path": "count"
+              },
+              "right": 1
+            }
+          }
+        }
+      ],
+      "decls": [
+        {
+          "type": "domain",
+          "name": "dodo",
+          "items": [
+            {
+              "value": "Bird",
+              "range": [
+                [
+                  1,
+                  45
+                ],
+                78,
+                115
+              ]
+            },
+            {
+              "value": "mammo",
+              "range": [
+                200,
+                201
+              ]
+            }
+          ]
+        },
+        {
+          "type": "domain",
+          "name": "pear",
+          "items": [
+            {
+              "value": "round",
+              "range": [
+                [
+                  1,
+                  45
+                ],
+                78,
+                115
+              ]
+            }
+          ]
+        },
+        {
+          "type": "struct",
+          "name": "snake",
+          "items": [
+            {
+              "of": "dodo",
+              "name": "member1"
+            },
+            {
+              "of": "literal",
+              "name": "member2",
+              "default": 0
+            }
+          ]
+        },
+        {
+          "type": "vec",
+          "name": "vendor",
+          "item": {
+            "of": "snake"
+          },
+          "size": {
+            "type": "expr",
+            "value": 45
+          }
+        },
+        {
+          "type": "import",
+          "name": "imported_module",
+          "decls": [],
+          "props": [],
+          "functions": {
+            "foo": {
+              "comments": "here is comments",
+              "finally": {
+                "type": "expr",
+                "value": "this expr is only used when the imported module's relative function is invalid."
+              }
+            }
+          }
+        },
+        {
+          "type": "match",
+          "name": "matcher1",
+          "parameters": [
+            "arg1",
+            "arg2",
+            {
+              "type": "rest",
+              "name": "argN"
+            }
+          ],
+          "items": [
+            {
+              "req": {
+                "arg1": {
+                  "of": "dodo"
+                }
+              },
+              "to": 23
+            },
+            {
+              "req": [
+                {
+                  "of": "snake",
+                  "as": "p",
+                  "value": {
+                    "type": "expr",
+                    "value": {
+                      "op": "eq",
+                      "left": {
+                        "op": "get",
+                        "value": "p"
+                      },
+                      "right": "round"
+                    }
+                  }
+                },
+                {},
+                {}
+              ],
+              "to": {
+                "type": "expr",
+                "value": "matched"
+              }
+            }
+          ],
+          "otherwise": 23
+        }
+      ],
+      "item": [
+        {
+          "type": "expr",
+          "value": {
+            "op": "match",
+            "source": {
+              "op": "get",
+              "path": "parent.var1"
+            },
+            "by": [
+              "matcher1"
+            ]
+          }
+        },
+        {
+          "type": "seq",
+          "items": [
+            "Grade: ",
+            {
+              "type": "expr",
+              "value": {
+                "op": "?:",
+                "cond": {
+                  "op": ">=",
+                  "left": {
+                    "op": "get",
+                    "path": "score"
+                  },
+                  "right": 90
+                },
+                "then": "优秀",
+                "else": "继续努力"
+              }
+            }
+          ]
+        },
+        {
+          "type": "seq",
+          "items": [
+            "First name: ",
+            {
+              "type": "expr",
+              "value": {
+                "op": "get",
+                "path": "names[0]"
+              }
+            },
+            " | snake1.member2: ",
+            {
+              "type": "expr",
+              "value": {
+                "op": "get",
+                "path": "snake1.member2"
+              }
+            }
+          ]
+        },
+        {
+          "type": "seq",
+          "items": [
+            {
+              "type": "effect",
+              "items": [
+                {
+                  "type": "set",
+                  "path": "count",
+                  "value": {
+                    "type": "expr",
+                    "value": {
+                      "op": "+",
+                      "left": {
+                        "op": "get",
+                        "path": "count"
+                      },
+                      "right": 1
+                    }
+                  }
+                }
+              ]
+            },
+            "After effect count: ",
+            {
+              "type": "expr",
+              "value": {
+                "op": "get",
+                "path": "count"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "delegate",
+      "time": {
+        "type": "expr",
+        "value": 3
+      },
+      "index": "i",
+      "items": {
+        "type": "seq",
+        "items": [
+          "第",
+          {
+            "type": "expr",
+            "value": {
+              "op": "get",
+              "path": "i"
+            }
+          },
+          "项：",
+          {
+            "type": "option",
+            "items": [
+              "X",
+              "Y",
+              "Z"
+            ]
+          }
+        ]
+      },
+      "separator": "\n"
+    }
+  ],
+  "props": {}
+}
