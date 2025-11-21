@@ -476,499 +476,366 @@ story
 
 ### 模式匹配
 
-使用 `#match` 为开头的行，之后算做一个模式匹配器：
+使用 `#match` 为开头的行，之后算做一个模式匹配器。模式匹配允许根据输入值选择不同的输出，语法类似 Rust 的 match 表达式。
 
-- 分支就是 `条件1，条件2 => 返回值` 这样的
-- 十分类似 Rust
-- 因为比较好写
-- 这个可以做到后处理
+#### 基本语法
+
+```genlang
+#match matchName
+    条件1 => 返回值1
+    条件2 => 返回值2
+    条件3, 条件4 => 返回值3
+    _ => 默认值
+```
+
+#### 使用示例
+
+```genlang
+#match status
+    1 => "在线"
+    2 => "离线"
+    3 => "忙碌"
+    _ => "未知"
+
+greeting
+    当前状态：#status|status
+```
+
+#### 在表达式中使用
+
+模式匹配可以在表达式中使用，使用 `|` 操作符：
+
+```genlang
+$value = 2
+result
+    结果：#[value | status]
+```
+
+其中 `value | status` 表示将 `value` 作为第一个参数传递给 `status` 这个 match 函数。
+
+#### 多参数匹配
+
+```genlang
+#match complexMatch
+    1, "A" => "情况1A"
+    1, "B" => "情况1B"
+    2, "A" => "情况2A"
+    _ => "其他情况"
+
+test
+    结果：#[1 | complexMatch, "A"]
+```
+
+> **注意**：在使用 `left | right1, right2, right3` 时，`left` 是第一个参数，`right1` 是 match 名称，`right2`、`right3` 才是第二、第三及之后的函数参数。
 
 ### 自定义宏
 
-这个就得自行编辑 Python 代码了。
+GenLang 支持自定义宏，但需要在解析器层面进行扩展。
+
+#### 宏的作用
+
+宏允许在编译时进行代码转换，可以简化常用模式的编写。
+
+#### 实现方式
+
+自定义宏需要修改 GenLang 的解析器代码（如 Python 实现），在词法分析和语法分析阶段识别和处理宏定义。
+
+#### 示例（概念性）
+
+```genlang
+!macro repeat(n, item)
+    #*n item
+
+!use repeat(3, greeting)
+```
+
+> **注意**：宏功能的具体实现取决于解析器的支持，当前版本可能需要自行扩展解析器代码。
 
 ### 数域枚举
 
-以一个数字范围为基础，设置其中的一些项为特殊对应：
+数域枚举（Domain）用于定义数字范围与字符串值的映射关系，可以加速数字与字符串之间的比较和转换。
 
-比如 `Color 1=red 2=green 3=blue`，最小的 4-255 都没用上，就可以 `4-255=unknown`。
+#### 基本语法
 
-然后除了数字固有的 `add`、`sub`，还可以设置一些变换，来在域里变换。
+```genlang
+#domain domainName
+    1 = "red"
+    2 = "green"
+    3 = "blue"
+    4-255 = "unknown"
+```
 
-特别地，与字符串比较时，会匹配枚举值。
-### 首行作用
+#### 使用示例
+
+```genlang
+#domain Color
+    1 = "red"
+    2 = "green"
+    3 = "blue"
+    4-10 = "other"
+    11-255 = "unknown"
+
+$colorCode = 2
+description
+    颜色代码 $colorCode 对应 #[colorCode | Color]
+```
+
+输出：`颜色代码 2 对应 green`
+
+#### 范围定义
+
+- 单个值：`1 = "value"`
+- 范围值：`4-255 = "value"`（包含两端）
+- 字符串匹配：当与字符串比较时，会自动匹配对应的枚举值
+
+#### 域变换
+
+除了基本的映射，Domain 还支持数字的固有操作（如 `add`、`sub`）和自定义变换，用于在域内进行数值变换。
+### 首行作用（#before）
+
+使用 `#before` 可以在进入生成器时立即执行一些初始化操作，这些操作会在随机选择分支之前完成。
+
+#### 基本语法
 
 ```genlang
 MyItem
     #before
-        $a=4
-        $c=$a+$b
-    #[$a+$c]
+        $a = 4
+        $b = 5
+        $c = $a + $b
+    #[$a + $c]
     None
 ```
 
-`#` 开头的都有特殊作用。这个会在进入 `MyItem` 时立刻进行，之后再计算概率，进入分支。
+#### 执行顺序
+
+1. 进入 `MyItem` 时，首先执行 `#before` 块中的所有操作
+2. 然后计算概率，随机选择分支
+3. 最后执行选中的分支
+
+#### 使用场景
+
+- 初始化变量
+- 计算中间值
+- 设置上下文状态
+- 执行副作用操作
+
+> **注意**：`#` 开头的都有特殊作用，`#before` 会在进入生成器时立刻执行，之后再计算概率进入分支。
 
 ### 函数
 
-只能用 module 来做。
+GenLang 中的函数通过 Module 机制实现。Module 是环境提供的包，包含因环境而异的函数。
 
-### Module
+#### 调用外部函数
 
-环境提供的包，里面有因环境而异的函数。
+```genlang
+result
+    随机数：#[randint(1, 100)]
+    当前时间：#[now()]
+    字符串长度：#[len("hello")]
+```
+
+#### Module 的作用
+
+- Module 提供了与运行环境交互的接口
+- 不同环境（浏览器、Node.js、Python 等）可以提供不同的 Module 实现
+- 常见的 Module 函数包括：数学运算、字符串处理、时间日期、随机数生成等
+
+#### 自定义 Module
+
+自定义 Module 需要在运行时环境中注册，GenLang 语言本身不提供定义 Module 的语法。
 
 ### #prop
 
-可以给生成器写挂载的变量，外界可以访问。
+`#prop` 用于给生成器定义挂载的属性，这些属性可以被外界访问，类似于对象的属性。
+
+#### 基本语法
+
+```genlang
+MyGenerator
+    #prop
+        $name = "示例生成器"
+        $version = 1.0
+        $author = "开发者"
+    value1
+    value2
+```
+
+#### 访问属性
+
+```genlang
+example
+    生成器名称：#MyGenerator.name
+    版本号：#MyGenerator.version
+```
+
+`#prop` 定义的属性在生成器外部可见，可以用于元数据、配置信息等场景。
 
 ### #domain
 
-只针对具体值，用来加速数字与字符串的比较和转换。
+`#domain` 用于定义数域枚举，详见上面的"数域枚举"部分。
 
----
+## GenLangSchema (Genson)
 
-# GenLangSchema
+GenLang 源代码会被编译成 GenLangSchema（简称 Genson），这是一种基于 JSON 的抽象语法树（AST）表示。
 
-本文档用于描述 GenLang 生成的中间表示Genson。
-每份Genson文件是一颗JSON形式的抽象语法树，根节点必为`Module`类型。。
-Genson中的每个节点都是一个对象，且必有`type`属性用于区分其类型。
-节点本身是纯数据结构，不包含可执行方法；本文档中描述的方法只描述外部引擎实现的行为（如 `evaluate`、`toString`）。
-大部分节点都有`evaluate`方法，以生成确定的、不再会更改的`Text`节点用于确定输出的文本。
-## AST 节点类型
-### Text
+### 什么是 Genson
 
-最简单的节点，一般作为 `evaluate` 的产物。
-其`source` 属性作为记载其生成的源头，一些场景下，可以通过`source`生成新的文本。
-其`toString`方法用于输出纯文本。
+- Genson 是 GenLang 的中间表示形式
+- 每个 Genson 文件是一棵 JSON 格式的抽象语法树
+- 根节点必须是 `Module` 类型
+- 每个节点都是一个对象，必须包含 `type` 属性用于区分节点类型
 
-**属性：**
-- `source`
-- `text`
+### 节点类型
 
-### Sequence
+Genson 支持以下节点类型：
 
-用于包裹一串连续的节点。
-`evaluate`会将`items`中各项依次evaluate之后拼接起来。其`type`可简写为`seq`
+- **Text** - 文本节点，表示最终输出的文本
+- **Sequence** - 序列节点，按顺序执行多个子节点
+- **Option** - 选项节点，随机选择一个子节点
+- **Roulette** - 轮盘节点，带权重的随机选择
+- **Repetition** - 重复节点，重复执行固定次数
+- **Delegate** - 委托节点，根据表达式动态重复
+- **Layer** - 层节点，创建新的作用域
+- **Module** - 模块节点，根节点
+- **Var** - 变量节点，声明变量
+- **Vec** - 向量节点，数组访问
+- **Ref** - 引用节点，引用其他生成器
+- **Expression** - 表达式节点，计算表达式
+- **Call** - 调用节点，调用函数或 match
+- **Set** - 赋值节点，修改变量值
+- **Domain** - 域节点，数域枚举定义
+- **Match** - 匹配节点，模式匹配定义
 
-**属性：**
-- `items`
+### 使用 Genson
 
-### Option
+Genson 文件可以直接被运行时引擎执行，无需重新编译。这使得：
 
-内部没有权重分布的列表。`evaluate` 会简单随机到某个值，然后evaluate，作为结果。
-**属性：**
-- `items`
+- 可以在不同语言中实现运行时引擎
+- 可以序列化和传输生成逻辑
+- 可以动态加载和组合生成器
 
-### Roulette
+详细的 Genson 规范请参考 `Genson.md` 文档。
 
-需要进行权重评估的 `Option`。
-**属性：**
-- `items`
+## 完整示例
 
-**item:**
-- `weight` 表达式，也可简写为`wt`
-- `value` 实际将evaluate的节点
+以下是一个完整的 GenLang 示例，展示了多种特性的组合使用：
 
-### Repetition
+```genlang
+// 定义颜色域
+#domain Color
+    1 = "红色"
+    2 = "绿色"
+    3 = "蓝色"
+    4-10 = "其他颜色"
 
-重复，你知道的。可以内部插入一些变量。
+// 定义状态匹配
+#match Status
+    1 => "在线"
+    2 => "离线"
+    3 => "忙碌"
+    _ => "未知"
 
-**属性：**
-- `times`
-- `value` 实际将evaluate的节点
-- `separator` 可选，插入value值中的Item
+// 变量声明
+$playerName : str
+$playerLevel : num
+$playerColor : num = 2
 
-### Delegate
+// 生成器定义
+playerInfo
+    #before
+        $playerName = #name
+        $playerLevel = #[randint(1, 100)]
+    #prop
+        $version = "1.0.0"
+    Player: $playerName
+    Level: $playerLevel
+    Status: #[1 | Status]
+    Color: #[$playerColor | Color]
 
-带表达式的 `Repetition`。
-**item:**
-- `weight` 表达式，每次都会动态评估
-- `value` 实际将evaluate的节点
-- `separator` 可选，插入value值中的Item
+name
+    Alice
+    Bob
+    Charlie
+    ^2 David  // David 有双倍权重
 
-### 示例
-以下示例可能不满足JSON语法，不过应该不影响
-
-```
-{
-    type:"module",
-    default:{
-        type:"Roulette",
-        items:[
-            {
-                value:{
-                    type:"seq",
-                    items:[
-                        "Hello, ",
-                        {
-                            type:"option",
-                            items:["Visitor","World",{type:"seq",items:["(No","Whitespace_here)"]}]
-                        }
-                    ]
-                },
-                weight:"0x12"
-            },
-            {
-                value:{
-                    type:"repetition",
-                    value:"Ook ",
-                    times:3
-                },
-                wt:{
-                    comment:"we'll explain expr and call later",
-                    type:"expr",
-                    op:"+",
-                    left:1,
-                    right:{
-                        type:"call",
-                        path:"rand_int",
-                        args:[1,14]
-                    }
-                }
-            },
-            {
-                type:"delegate",
-                weight:{type:"ref",to:"a_value_that_maybe_hundred_or_thousand.dependOn(teacher.feeling)"},
-                separator:",",
-                value:"I spelt Apple wrong. "
-            }
-        ]
-    }
-}
-```
-## 高级节点
-
-### Layer
-
-`Layer`表达了GenLang里的上下文层级关系，其`evaluate`行为基本与Roulette一致。
-同时，`Layer`还有一些高级成分。`prop`描述了所有`items`生成过程中需要的变量，在evaluate时，这些变量可能会被打包成一个`context`作为生成的Text节点的`source`以便重新生成。`decl`包含在这个Layer中可用的类型，match表达式，等其他不会evaluate的东西。`prop`也使得`Layer`拥有了类似C中struct那样的存储能力。
-特别地，Layer的items可以具有名字，以进行引用。（具体之后会说）
-**属性：**
-- `prop`
-- `decl`
-- `items`
-
-#### 使用 decl
-
-`decl` 是一个对象，用于声明在当前 Layer 中可用的类型定义、Match 表达式等不会参与 `evaluate` 的节点。这些声明可以在 Layer 的 `items` 生成过程中被引用和使用。
-
-**decl 中可以包含的节点类型：**
-- **Match** - 模式匹配器，可以在 Expression 中通过 `instance.matchfn()` 或 `left | matcherName, ...` 的方式调用
-- **Domain** - 数字域定义，用于数字到字符串的映射，可以在 Match 的 `req` 中使用
-- 其他类型定义节点（根据具体实现）
-
-**decl 的使用示例：**
-
-```json
-{
-  "type": "layer",
-  "name": "MyLayer",
-  "prop": {
-    "$count": {
-      "type": "var",
-      "name": "$count",
-      "type": "num",
-      "value": 0
-    }
-  },
-  "decl": {
-    "ColorMatcher": {
-      "type": "match",
-      "name": "ColorMatcher",
-      "branch": [
-        {
-          "req": [
-            {
-              "domain": "Color",
-              "index": 0
-            }
-          ],
-          "to": {
-            "type": "text",
-            "text": "red"
-          }
-        }
-      ]
-    },
-    "Color": {
-      "type": "domain",
-      "name": "Color",
-      "branch": [
-        {
-          "string": "red",
-          "range": [1, 10]
-        },
-        {
-          "string": "blue",
-          "range": [11, 20]
-        }
-      ]
-    }
-  },
-  "items": {
-    "type": "roulette",
-    "items": [
-      {
-        "weight": 1,
-        "value": {
-          "type": "expression",
-          "op": "|",
-          "left": {
-            "type": "expression",
-            "expr": [1]
-          },
-          "right": [
-            {
-              "type": "ref",
-              "to": "ColorMatcher"
-            }
-          ]
-        }
-      }
-    ]
-  }
-}
+greeting
+    Hello #(world|human|friend)!
+    #playerInfo
+    Welcome to the game!
 ```
 
-在上面的示例中：
-- `ColorMatcher` 是一个在 `decl` 中声明的 Match 节点，可以在 Expression 中通过 `value | ColorMatcher` 的方式调用
-- `Color` 是一个在 `decl` 中声明的 Domain 节点，可以在 Match 的 `req` 中通过 `"domain": "Color"` 的方式引用
+## 最佳实践
 
-### Module
+### 1. 变量作用域
 
-Module表示作为独立文档的节点。也因此，Module有可能来自外部。
-我们不能绝对地确定外部文档的内容，因此，我们能够有限制地访问Module，在出错时，使用对应的else表达式。
-**属性：**
-- `name` 内部使用的全局Identifier
-- `path` 指向Module地址，可能是URL路径，也可能是其他的。
-- `entry` 一个名称，指向其`items`中的内容。如果指向无效，则是文档本身的问题，会报错
-- `items` 其可以访问的内容
-**item**
-- `value` 这个属性一般不能被访问，属于内部
-- `name` 这个item被以什么名字挂载在Module上
-- `else` 一个节点，如果value失效，访问这个item时会返回何种结果。注意，是无论如何访问。无论作为普通节点，函数，还是match。
-### Var
+- 在需要的地方声明变量，避免全局污染
+- 使用 `#before` 进行局部初始化
+- 利用 Layer 创建独立的作用域
 
-用于声明变量，通常出现在 Layer 的 `prop` 中。变量在 Layer 的 `evaluate` 过程中可以被访问和修改，并且在生成 Text 节点时，这些变量会被打包成 `context` 作为 `source` 的一部分，以便后续重新生成。
+### 2. 性能优化
 
-变量可以有类型声明和初始值。如果未设置初始值，会根据类型设置默认值（数字默认为 `0`，字符串默认为 `""`，生成结果默认为 `Nil`）。
+- 使用 Domain 加速数字到字符串的转换
+- 避免过深的递归引用
+- 合理使用权重，避免不必要的计算
 
-**属性：**
-- `name` 变量名，如 `"$a"`、`"$count"` 等
-- `type` 可选，变量类型，如 `"num"`、`"str"` 或生成器类型
-- `value` 可选，变量的初始值（表达式节点）
-- `const` 可选，布尔值，表示是否为常量
-- `once` 可选，布尔值，表示是否只初始化一次
-### Vec
+### 3. 代码组织
 
-用于表示数组或列表类型，可以存储多个元素。`evaluate` 会返回数组本身，不进行转换。
+- 将相关的生成器分组
+- 使用注释说明复杂逻辑
+- 利用内部项（子层）封装局部逻辑
 
-对 Vec 的访问（如通过索引访问元素）必须提供失败时的 `else` 处理，因为索引可能越界或访问可能失败。这确保了访问的安全性。
+### 4. 错误处理
 
-Vec 可以包含任意类型的元素，元素类型可以相同或不同。
+- 避免无限递归（系统会自动检测并报错）
+- 检查数组边界（使用 `else` 处理越界）
+- 为可选内容提供默认值
 
-**属性：**
-- `items` 数组元素列表，每个元素是一个节点
-- `else` 可选，当访问 Vec 失败时（如索引越界）返回的备用节点
-### Ref
+### 5. 可维护性
 
-用于引用其他节点，通常引用 Layer 中定义的 item 或其他可访问的内容。`evaluate` 会根据路径查找目标节点，然后 evaluate 该节点并返回结果。
+- 使用有意义的生成器名称
+- 将复杂逻辑拆分为多个小生成器
+- 利用 `#prop` 添加元数据
 
-Ref 使用路径（path）来定位目标节点。路径可以是简单的名称（如 `"name"`），也可以是层级路径（如 `"layer1.item1"`），用于访问嵌套的 Layer 中的内容。
+## 错误处理
 
-**属性：**
-- `to` 路径字符串，指向要引用的目标节点。可以是简单的标识符，也可以是层级路径（用 `.` 分隔）
+### 递归深度限制
 
-### Expression
+系统会自动检测递归深度，超过限制时会终止并报错：
 
-表达式用于计算并返回一个值。`evaluate` 会根据表达式的类型和运算符进行计算，返回计算结果。
-
-支持基本的数值运算（`+`, `-`, `*`, `/`, `%`）、比较运算（`>`, `<`, `>=`, `<=`, `==`, `!=`）、逻辑运算（`and`, `or`, `not`）和字符串拼接（`+`）。
-
-**属性：**
-- `op` 运算符，如 `+`, `-`, `*`, `/`, `%`, `>`, `<`, `>=`, `<=`, `==`, `!=`, `and`, `or`, `not`, `|`, `match`, `match_mut` 等
-- `left` 左操作数（表达式节点）
-- `right` 右操作数（表达式节点，对于二元运算符）
-- `expr` 可选，是个表达式树，可以用中序表示法（如 `[1, "+", 2]` 或 `["ref", "x"]`）
-
-还有其他可用的 op，在后面描述。
-### Call
-
-用于调用函数，可以是内置函数或 module 中定义的函数。
-`evaluate` 会执行函数调用，传入参数，并返回函数的返回值。
-返回值类型取决于被调用的函数。
-
-**属性：**
-- `path` 函数路径，可以是内置函数名（如 `"rand_int"`）或 module 路径（如 `"module.functionName"`）
-- `args` 参数列表，数组形式，每个元素是一个表达式节点
-
-### Assign
-
-**注意：Assign 不是节点类型，而是一种操作。**
-
-Assign 用于在上下文中创建或修改变量。这些变量是外部不可见的，只有 Layer 的 `prop` 可以访问。
-
-当执行 Assign 操作时，会在当前的执行上下文（ctx）中创建或更新一个变量。这个变量不会出现在生成的 Text 节点中，也不会影响其他 Layer，但可以在当前 Layer 的 `prop` 中被访问和使用。
-
-Assign 通常用于在生成过程中维护状态，例如计数器、临时变量等。
-
-**操作类型：**
-- `set` - 设置或创建变量
-
-**set 操作属性：**
-- `path` 变量路径，指向要设置的目标变量（可以是层级路径）
-- `value` 要赋给变量的值（表达式节点）
-### Domain
-
-用于定义数字到字符串的映射关系，方便不同用途的数字之间、数字与文本之间的转换和比较。Domain 不参与 `evaluate`，而是作为类型系统的一部分，用于模式匹配和类型转换。
-
-Domain 将数字范围映射到字符串标识符。当使用数字值查询 Domain 时，会返回对应的字符串标识符。例如，如果 `X(21)` 在 `partA` 的范围内，则 `X(21) == "partA"` 为真。
-
-Domain 通常与 Match 节点配合使用，用于模式匹配和条件判断。
-
-**属性：**
-- `name` Domain 的名称，用于引用
-- `branch` 分支列表，每个分支定义一个数字范围到字符串的映射
-
-**branch 项属性：**
-- `string` 字符串标识符，映射的目标值
-- `range` 数字范围，可以是单个数字、数字区间 `[min, max]`，或它们的数组
-
-**对应的 schema示例：**
-
-```json
-{
-  "type": "domain",
-  "name": "X",
-  "branch": [
-    {
-      "string": "partA",
-      "range": [
-        [3, 34],
-        78,
-        114
-      ]
-    },
-    {
-      "string": "partB",
-      "range": 89
-    }
-  ]
-}
+```genlang
+// 错误示例：无限递归
+sentence
+    #sentence and more
+    // 缺少终止条件
 ```
 
+### 数组越界
 
-### Match
+访问数组时可以使用 `else` 处理越界情况：
 
-用于定义模式匹配器，根据输入值匹配不同的模式并返回对应的结果。Match 不参与 `evaluate`，而是作为类型系统的一部分，用于模式匹配和条件判断。
-
-Match 支持嵌套模式匹配，可以匹配 Domain、Struct 等复杂类型。当使用值调用 Match 时，会按照 `branch` 的顺序检查每个分支的 `req`（要求），如果所有要求都满足，则返回该分支的 `to` 值。
-
-Match 通常与 Domain 节点配合使用，用于实现复杂的条件逻辑和类型转换。
-
-**属性：**
-- `name` Match 的名称，用于引用
-- `branch` 分支列表，每个分支定义一个匹配模式和对应的返回值
-
-**branch 项属性：**
-- `req` 匹配要求列表，每个要求定义需要满足的条件
-- `to` 当所有 `req` 都满足时返回的值（节点）
-
-**req 项属性：**
-- `domain` 可选，Domain 名称，用于检查值是否属于该 Domain
-- `index` 可选，索引位置，用于访问结构体或数组的特定字段。`req` 在数组中的位置对应 match 表达式中参数的位置
-- `expr` 可选，表达式，用于更复杂的匹配条件（如 `["eq", 1]` 表示等于 1）
-
-**对应的 schema 示例：**
-
-```json
-{
-  "type": "match",
-  "name": "somematcher",
-  "branch": [
-    {
-      "req": [
-        {
-          "domain": "Domain1",
-          "index": 1,
-          "expr": ["eq", 1]
-        }
-      ],
-      "to": {
-        "type": "text",
-        "text": "balabala"
-      }
-    },
-    {
-      "req": [
-        {
-          "domain": "Domain2",
-          "index": 0
-        }
-      ],
-      "to": {
-        "type": "ref",
-        "to": "anotherItem"
-      }
-    }
-  ]
-}
+```genlang
+$items = ["a", "b", "c"]
+safeAccess
+    $items[10] else "默认值"
 ```
 
-#### 使用 Match
+### 未定义引用
 
-在 Expression 中可以通过以下方式使用 Match：
+引用不存在的生成器时，行为取决于实现，通常会返回空字符串或报错。
 
-- **`instance.matchfn(args...)`** - 调用 match 函数，返回匹配结果，不改变 `instance` 本身。`matchfn` 可以是变量，也可以是在 Layer 的 `decl` 中声明的 Match 节点名称
-- **`instance->matchfn(args...)`** - 调用 match 函数，改变 `instance` 自身，并返回自身
-- **`left | right1, right2, right3, ...`** - 使用 `|` 运算符进行 match，`left` 是第一个参数（待匹配的值），`right1` 是 match 名称，`right2`、`right3` 等是第二、第三及之后的函数参数
+### 类型错误
 
-当调用 match 时，传入的参数会按照位置对应到 Match 节点 `branch` 中 `req` 数组的位置。例如，如果使用 `value | matcherName, arg1, arg2`，则 `value` 对应第一个 `req`，`arg1` 对应第二个 `req`，`arg2` 对应第三个 `req`。
+表达式中的类型不匹配可能导致运行时错误，建议在使用前进行类型检查。
 
-**Expression 中使用 match 的示例：**
+## 总结
 
-使用 `|` 运算符：
-```json
-{
-  "type": "expression",
-  "op": "|",
-  "left": {
-    "type": "ref",
-    "to": "value"
-  },
-  "right": [
-    {
-      "type": "ref",
-      "to": "matcherName"
-    },
-    {
-      "type": "expression",
-      "expr": [1]
-    },
-    {
-      "type": "expression",
-      "expr": [2]
-    }
-  ]
-}
-```
+GenLang 是一个简洁而强大的文本生成语言，通过：
 
-使用 `match` 运算符：
-```json
-{
-  "type": "expression",
-  "op": "match",
-  "left": {
-    "type": "ref",
-    "to": "instance"
-  },
-  "right": {
-    "type": "ref",
-    "to": "matcherName"
-  },
-  "args": [
-    {"type": "expression", "expr": [1]},
-    {"type": "expression", "expr": [2]}
-  ]
-}
-```
+- **简洁的语法**：使用缩进和特殊字符，减少样板代码
+- **灵活的随机性**：支持权重、动态控制、模式匹配
+- **强大的表达式**：支持数值运算、逻辑判断、字符串操作
+- **模块化设计**：通过引用、变量、作用域实现代码复用
+- **可扩展性**：通过 Module 和宏机制扩展功能
+
+GenLang 源代码会被编译成 Genson（JSON AST），可以在不同语言的运行时中执行，实现了语言与实现的分离。

@@ -5,8 +5,8 @@
  *   node cli.js --input example.json
  */
 
-const fs = require('fs');
-const path = require('path');
+import fs from 'fs';
+import path from 'path';
 const { evaluate } = require('./genson.js');
 
 const args = process.argv.slice(2);
