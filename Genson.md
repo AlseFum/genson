@@ -57,7 +57,7 @@ Layer节点会让上下文向深递进一层，满足`shadowing`等操作。
 
 转化为Domain/Struct时，会直接使用第一个元素，或者Literal(None)
 
-### Layer
+### Layer/Struct
 
 可以作为上下文的结构体。
 
